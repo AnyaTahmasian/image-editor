@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cmath>
 
 #include "imgedit/ops.hpp"
@@ -114,10 +115,15 @@ Image sobel_edges(const Image& img) {
         out.data()[i] = std::hypot(dx.data()[i], dy.data()[i]);
         strongest = std::fmax(strongest, out.data()[i]);
     }
-    // Scale so the strongest edge is white, otherwise edges in normal photos look very faint.
-    if (strongest > 0.0f) {
-        for (float& v : out.data()) v /= strongest;
+    // A flat image should give exactly zero, but rounding (e.g. fused multiply-add on
+    // some CPUs) can leave tiny values like 1e-8. Treat those as no edges at all,
+    // otherwise the scaling below would blow them up to full white.
+    if (strongest < 1e-4f) {
+        std::fill(out.data().begin(), out.data().end(), 0.0f);
+        return out;
     }
+    // Scale so the strongest edge is white, otherwise edges in normal photos look very faint.
+    for (float& v : out.data()) v /= strongest;
     return out;
 }
 
